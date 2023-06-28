@@ -4,34 +4,26 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const signup = (req, res) => {
+  console.log(req.body);
   User.find({ email: req.body.email })
-    .then((user) => {
+    .then(async (user) => {
       if (user.length >= 1) {
         res.status(409).json({
           message: "Already Have an Account using this email",
         });
       } else {
-        bcrypt.hash(req.body.password, 10, async (err, hash) => {
-          console.log(hash);
-          if (err) {
-            return res.status(500).json({
-              error: err,
-            });
-          } else {
-            const user = new User({
-              userName: req.body.userName,
-              email: req.body.email,
-              password: hash,
-            });
+        const user = new User({
+          userName: req.body.userName,
+          email: req.body.email,
+          password: req.body.password,
+        });
 
-            await user.save().then((result) => {
-              console.log(result);
+        await user.save().then((result) => {
+          console.log(result);
 
-              res.status(201).json({
-                message: "User Created Successfully",
-              });
-            });
-          }
+          res.status(201).json({
+            message: "User Created Successfully",
+          });
         });
       }
     })
