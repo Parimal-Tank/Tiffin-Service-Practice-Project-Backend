@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const User = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 
 const signup = (req, res) => {
   console.log(req.body);
@@ -12,18 +13,66 @@ const signup = (req, res) => {
           message: "Already Have an Account using this email",
         });
       } else {
+        const token = jwt.sign(
+          {
+            userName: req.body.userName,
+            email: req.body.email,
+            password: req.body.password,
+          },
+          process.env.JWT_KEY,
+          {
+            expiresIn: "1h",
+          }
+        );
+
         const user = new User({
           userName: req.body.userName,
           email: req.body.email,
           password: req.body.password,
+          token: token,
         });
 
         await user.save().then((result) => {
-          console.log(result);
+          if (result) {
+            console.log("result: ", result);
+            // For sending mail to Users
+            const transporter = nodemailer.createTransport({
+              service: "gmail",
+              auth: {
+                user: "parimaltank132@gmail.com",
+                pass: "qorlqlshjnfdleoy",
+              },
+            });
 
-          res.status(201).json({
-            message: "User Created Successfully",
-          });
+            const url = `http://localhost:3000/auth/${token}`;
+
+            const mailOptions = {
+              from: "parimaltank132@gmail.com",
+              to: user.email,
+              subject: "Welcome To Tiffin Service",
+              html: `<h3>URL for account verification is </h3>
+                 <a href=${url}>  
+                    <button>Click Me</button>
+                 </a>
+                `, // html body
+            };
+
+            transporter.sendMail(mailOptions, function (error, info) {
+              if (error) {
+                console.log(error);
+              } else {
+                console.log("Email sent: " + info.response);
+              }
+            });
+
+            res.status(201).json({
+              message: "User Created Successfully",
+            });
+          } else {
+            res.status(400).json({
+              message: "Auth Failed",
+            });
+          }
         });
       }
     })
@@ -65,8 +114,9 @@ const login = (req, res) => {
                   expiresIn: "1h",
                 }
               );
-              console.log("token", token);
-              res.cookie("token", token, { httpOnly: true }).send();
+              res.status(200).json({
+                token,
+              });
             } else {
               res.status(400).json({
                 message: "Auth Failed",
@@ -92,8 +142,24 @@ const logout = (req, res) => {
   }
 };
 
+const verification = (req, res) => {
+  const token = req.body;
+  console.log("token: ", token);
+
+  if (token) {
+    res.status(201).json({
+      message: "User Verified Successfully",
+    });
+  } else {
+    res.status(403).json({
+      message: "Verification Fail",
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
   logout,
+  verification,
 };
